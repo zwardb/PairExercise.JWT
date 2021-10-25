@@ -4,6 +4,7 @@ const config = {
   logging: false,
 };
 const jwt = require('jsonwebtoken');
+const bcrypt = require('bcrypt');
 
 if (process.env.LOGGING) {
   delete config.logging;
@@ -17,6 +18,11 @@ const User = conn.define('user', {
   username: STRING,
   password: STRING,
 });
+
+User.beforeCreate(async (user) => {
+  const hashedPassword = await bcrypt.hash(user.password, 10)
+  user.password = hashedPassword;
+})
 
 User.byToken = async (token) => {
   try {
@@ -38,11 +44,11 @@ User.authenticate = async ({ username, password }) => {
   const user = await User.findOne({
     where: {
       username,
-      password,
     },
   });
-  if (user) {
-    const token = await jwt.sign({ userId: user.id }, process.env.JWT);
+  const matching = await bcrypt.compare(password, user.password)
+  if (matching) {
+    const token = await jwt.sign({ userId: user.id }, 'worldofwarcraft');
     return token;
   }
   const error = Error('bad credentials');
